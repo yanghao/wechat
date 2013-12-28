@@ -3,20 +3,76 @@ import sys
 _p = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'template')
 
 import time
+try:
+    import xml.etree.cElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
 message_lookup = TemplateLookup(directories=[_p])
 
 class MessageError(Exception): pass
+class MessageTypeError(MessageError): pass
+
+TEXT = "text"
+tag_to_user = "ToUserName"
+tag_from_user = "FromUserName"
+tag_timestamp = "CreateTime"
+tag_msg_type = "MsgType"
+tag_msg_id = "MsgId"
+tag_content = "Content"
 
 class Message:
-    def __init__(self, to_user, from_user, content):
+    def __init__(self, to_user=None, from_user=None, content=None, xml=None):
         self.to_user = to_user
         self.from_user = from_user
         self.timestamp = int(time.time())
-        self.msg_type = content.msg_type
         self.content = content
+        if content != None:
+            self.msg_type = content.msg_type
+        else:
+            self.msg_type = None
+        self.xml = xml
+        self.xml_msg = None
+        if xml != None:
+            self._extract_info(xml)
+
+    def _extract_info(self, xml):
+        root = ET.fromstring(xml)
+        self.xml_to_user = root.find(tag_to_user)
+        if self.xml_to_user == None:
+            raise MessageError("Cannot find to_user from xml ...")
+        self.xml_to_user = self.xml_to_user.text
+        self.xml_from_user = root.find(tag_from_user)
+        if self.xml_from_user == None:
+            raise MessageError("Cannot find from_user from xml ...")
+        self.xml_from_user = self.xml_from_user.text
+        self.xml_timestamp = root.find(tag_timestamp)
+        if self.xml_timestamp == None:
+            raise MessageError("Cannot find CreateTime from xml ...")
+        self.xml_timestamp = self.xml_timestamp.text
+        self.xml_msg_type = root.find(tag_msg_type)
+        if self.xml_msg_type == None:
+            raise MessageError("Cannot find MsgType from xml ...")
+        self.xml_msg_type = self.xml_msg_type.text
+        self.xml_msg_id = root.find(tag_msg_id)
+        if self.xml_msg_id == None:
+            raise MessageError("Cannot find MsgId from xml ...")
+        self.xml_msg_id = self.xml_msg_id.text
+        #! Currently only support text message
+        if self.xml_msg_type != TEXT:
+            raise MessageTypeError("Only text messages are accepted, got: %s" % self.xml_msg_type)
+        self.xml_msg = root.find(tag_content)
+        if self.xml_msg == None:
+            raise MessageError("No message content found")
+
+    def reply(self, content):
+        if self.xml_msg == None:
+            raise MessageError("not initialized from xml ...")
+        msg = Message(self.xml_from_user, self.xml_to_user, content)
+        t = message_lookup.get_template(msg.msg_type + '.mako')
+        return t.render(msg=msg)
 
     def __str__(self):
         t = message_lookup.get_template(self.msg_type + '.mako')
@@ -95,3 +151,15 @@ if __name__ == '__main__':
     print("=======================================================")
     video = VideoContent(8, "test media title", "This is a test only video ...")
     print(str(Message('xiaoyezi', 'hua', video)))
+    print()
+    print("*******************************************************")
+    test_xml = ''' <xml>
+     <ToUserName><![CDATA[toUser]]></ToUserName>
+      <FromUserName><![CDATA[fromUser]]></FromUserName>
+       <CreateTime>1348831860</CreateTime>
+        <MsgType><![CDATA[text]]></MsgType>
+         <Content><![CDATA[this is a test]]></Content>
+          <MsgId>1234567890123456</MsgId>
+           </xml>'''
+    msg = Message(xml=test_xml)
+    print(msg.reply(video))
