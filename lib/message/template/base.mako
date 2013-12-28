@@ -3,5 +3,5 @@
     <FromUserName><![CDATA[${msg.from_user}]]></FromUserName>
     <CreateTime>${msg.timestamp}</CreateTime>
     <MsgType><![CDATA[${msg.msg_type}]]></MsgType>
-    <%block name="content" />
+<%block name="content" />
 </xml>
