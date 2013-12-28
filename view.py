@@ -7,14 +7,13 @@ import time
 import json
 import logging
 
-ROOT = '/home/hua/uwsgi/go/iplist'
 PASSWORD = "ilovexiaoyezi"
 
 log = logging.getLogger("myroot")
 
 template = '''<xml>
     <ToUserName><![CDATA[%s]]></ToUserName>
-    <FromUserName><![CDATA[%s]]></FromUserName> 
+    <FromUserName><![CDATA[%s]]></FromUserName>
     <CreateTime>%s</CreateTime>
     <MsgType><![CDATA[text]]></MsgType>
     <Content><![CDATA[%s]]></Content>
@@ -73,48 +72,8 @@ class WeChat(RequestHandler):
         re_func_flag.text = '1'
         reply = ET.dump(re_root)
         reply = template % (poster.text, receiver.text, re_timestamp.text, re_content.text)
-        '''
-        content = "Receiver: %s, poster: %s, timestamp: %s, msg_type: %s, content: %s, msg_id: %s" % (receiver,
-            poster, timestamp, msg_type, content, msg_id)
-        reply = {'ToUserName': poster.text, 'FromUserName': receiver.text, 'CreateTime': str(int(time.time())),
-                 'MsgType': 'text', 'Content': content, "FuncGlag": '1'}
-        reply = json.dumps(reply)
-        '''
         log.info(reply)
         self.response.write(reply)
-
-class IP_List(RequestHandler):
-    def get(self):
-        items = os.listdir(ROOT)
-        items.sort()
-        text = ''
-        for item in items:
-            if item in ['.gitignore', 'README']:
-                continue
-            item = os.path.join(ROOT, item)
-            if not os.path.isfile(item):
-                return Response("Error ... %s is not a file." % item)
-            else:
-                with open(item) as fd:
-                    text = text + os.path.basename(item) + ' @ ' + fd.read() + '\n'
-        res = Response(text)
-        res.headers = [('Content-Type', 'text/plain; charset=utf8')]
-        return res
-
-class IP_Set(RequestHandler):
-    def get(self, name, ip, password):
-        if name == '' or ip == '' or password == '':
-            return Response('Empty ... no information provided.')
-        elif password != PASSWORD:
-            return Response('Error ... Authentication error.')
-        else:
-            with open(os.path.join(ROOT, name), 'w') as fd:
-                fd.write(ip + ' @ ' + strftime("%Y-%m-%d %H:%M:%S"))
-            return Response('Success ... IP address stored: %s' % ip)
-
-class IP_Address(RequestHandler):
-    def get(self):
-        return Response(str(self.request.remote_addr))
 
 class Not_Found(RequestHandler):
     def get(self):
