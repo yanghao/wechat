@@ -2,6 +2,6 @@
 
 <%block name="content">
     <Image>
-        <MediaId><![CDATA[${msg.media_id}]]></MediaId>
+        <MediaId><![CDATA[${msg.content.media_id}]]></MediaId>
     </Image>
 </%block>

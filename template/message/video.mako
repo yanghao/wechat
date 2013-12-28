@@ -2,8 +2,8 @@
 
 <%block name="content">
     <Video>
-        <MediaId><![CDATA[${msg.media_id}]]></MediaId>
-        <Title><![CDATA[${msg.media_title}]]></Title>
-        <Description><![CDATA[${msg.media_desc}]]></Description>
+        <MediaId><![CDATA[${msg.content.media_id}]]></MediaId>
+        <Title><![CDATA[${msg.content.media_title}]]></Title>
+        <Description><![CDATA[${msg.content.media_desc}]]></Description>
     </Video>
 </%block>
