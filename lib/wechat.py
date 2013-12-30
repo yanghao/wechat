@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import time
 import logging
 from hashlib import sha1
@@ -12,6 +13,7 @@ class WeChat:
     raw_token_url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s'
     raw_upload_url = 'http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s'
     raw_download_url = 'http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s'
+    raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     def __init__(self, appid, passcode):
        self.log = logging.getLogger(self.__class__.__name__)
@@ -69,7 +71,7 @@ class WeChat:
                 self.log.error("json data is not as expected: %s" % str(data))
             self.token_last_update = int(time.time())
             self.token_expire = self.token_last_update + int(str(expires_in), 0)
-            self.access_token = access_token
+            self.access_token = access_token.encode('utf-8')
 
     def check_token(self):
         if int(time.time()) > self.token_expire:
@@ -102,6 +104,24 @@ class WeChat:
             raise WeChatError("Failed to retrieve media: %s" % media_id)
         return content
 
+    def create_menu(self, menu):
+        url = self.raw_menu_url % self.access_token
+        s = json.dumps(menu, ensure_ascii=False)
+        resp, content = self.http.request(url, method="POST", body=s)
+        if resp['status'] != '200':
+            raise WeChatError("Failed to create menu ...")
+        try:
+            data = json.loads(content)
+        except:
+            raise WeChatError("Failed to load json response: %s" % content)
+        try:
+            err = data['errcode']
+            msg = data['errmsg']
+        except KeyError:
+            raise WeChatError("Failed to find errcode: %s" % str(data))
+        if err != 0:
+            raise WeChatError("Menu creation failed: %s" % str(data))
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e')
@@ -116,3 +136,9 @@ if __name__ == "__main__":
         print("Data downloading OK")
     else:
         print("Data mismatch !!!")
+    #################################
+    menu = dict()
+    menu['button'] = []
+    one_button = {'type': "click", "name": '叶子科技', "key": "xiaoyezi"}
+    menu['button'].append(one_button)
+    wechat.create_menu(menu)
