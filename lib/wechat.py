@@ -9,12 +9,23 @@ import requests
 
 class WeChatError(Exception): pass
 
-class WeChat:
+class Token(object):
+    def __get__(self, obj, objtype):
+        if obj.access_token == None:
+            obj.refresh_token()
+        obj.check_token()
+        return obj.access_token
+
+    def __set__(self, obj, value):
+        raise ValueError("Cannot set a token")
+
+class WeChat(object):
     raw_token_url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s'
     raw_upload_url = 'http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s'
     raw_download_url = 'http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s'
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
+    token = Token()
     def __init__(self, appid, passcode):
        self.log = logging.getLogger(self.__class__.__name__)
        self.appid = appid
@@ -80,7 +91,7 @@ class WeChat:
     def upload(self, data_type, data):
         if data_type not in self.all_data_type:
             raise WeChatError("data_type not supported: %s (%s)" % (data_type, str(self.all_data_type)))
-        url = self.raw_upload_url % (self.access_token, data_type)
+        url = self.raw_upload_url % (self.token, data_type)
         files = {'media': ('test.jpg', data), 'type': 'image'}
         r = requests.post(url, files=files)
         if r.status_code != 200:
@@ -98,14 +109,14 @@ class WeChat:
         return media_id
 
     def download(self, media_id):
-        url = self.raw_download_url % (self.access_token, media_id)
+        url = self.raw_download_url % (self.token, media_id)
         resp, content = self.http.request(url)
         if resp['status'] != '200':
             raise WeChatError("Failed to retrieve media: %s" % media_id)
         return content
 
     def create_menu(self, menu):
-        url = self.raw_menu_url % self.access_token
+        url = self.raw_menu_url % self.token
         s = json.dumps(menu, ensure_ascii=False)
         resp, content = self.http.request(url, method="POST", body=s)
         if resp['status'] != '200':
@@ -126,7 +137,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e')
     print(time.time())
-    print(wechat.access_token)
+    print(wechat.token)
     print(wechat.token_expire)
     with open("/home/hua/Pictures/test2.jpg", 'rb') as fd:
         data = fd.read()
@@ -139,6 +150,10 @@ if __name__ == "__main__":
     #################################
     menu = dict()
     menu['button'] = []
-    one_button = {'type': "click", "name": '叶子科技', "key": "xiaoyezi"}
+    sub_button = [{"type": "click", "name": "土豆丝", "key": "tudousi"},
+                  {"type": "click", "name": "西红柿炒鸡蛋", "key": "xihongshichaojidan"},
+                  {"type": "click", "name": "几个很多的西红柿炒鸡蛋", "key": "manyxihongshichaojidan"},
+                  ]
+    one_button = {"name": '菜单', "sub_button": sub_button}
     menu['button'].append(one_button)
     wechat.create_menu(menu)
