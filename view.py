@@ -1,77 +1,58 @@
 import os
+import sys
+_p = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
+sys.path.insert(0, _p)
+
 from time import strftime
 from webapp2 import RequestHandler, Response
 from hashlib import sha1
-import xml.etree.ElementTree as ET
 import time
 import json
 import logging
+
+from wechat import WeChat
+from message import Message
+from message import MessageError
+from message import MessageXMLError
 
 PASSWORD = "ilovexiaoyezi"
 
 log = logging.getLogger("myroot")
 
-template = '''<xml>
-    <ToUserName><![CDATA[%s]]></ToUserName>
-    <FromUserName><![CDATA[%s]]></FromUserName>
-    <CreateTime>%s</CreateTime>
-    <MsgType><![CDATA[text]]></MsgType>
-    <Content><![CDATA[%s]]></Content>
-    <MsgId>1234567890123456</MsgId>
-</xml>'''
+from config import TOKEN_PATH
+wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', TOKEN_PATH)
 
 class WeChat(RequestHandler):
-    def get(self):
-        #for i in self.request.GET.keys():
-        #    self.response.write("%s : %s <br />" % (i, str(self.request.GET[i])))
+    def check_request(self):
         signature = self.request.GET.get('signature')
         timestamp = self.request.GET.get('timestamp')
         nonce = self.request.GET.get('nonce')
+        if None in [signature, timestamp, nonce]:
+            return False
+        else:
+            return wechat.verify(signature, timestamp, nonce)
+
+    def get(self):
+        result = self.check_request()
         echostr = self.request.GET.get('echostr')
-        if None in [signature, timestamp, nonce, echostr]:
+        if result == False:
             self.response.write("Try harder ... ;-)")
         else:
-            clist = ['ilovewechat', timestamp, nonce]
-            clist.sort()
-            content = ''
-            for item in clist:
-                content += item
-            sh = sha1()
-            sh.update(content)
-            hexdigest = sh.hexdigest()
-            if hexdigest != signature:
-                self.response.write("signature mismatch: %s %s" % (hexdigest, signature))
-            else:
-                self.response.write(echostr)
+            self.response.write(echostr)
 
     def post(self):
+        result = self.check_request()
+        if result == False:
+            self.response.write("[POST] Try harder ... ;-)")
+            return
         try:
-            root = ET.fromstring(self.request.body)
-        except ET.ParseError as e:
-            self.response.write(str(e))
-        receiver = root.find("ToUserName")
-        poster = root.find("FromUserName")
-        timestamp = root.find("CreateTime")
-        msg_type = root.find("MsgType")
-        content = root.find("Content")
-        msg_id = root.find("MsgId")
-
-        re_root = ET.Element('xml')
-        re_receiver = ET.SubElement(re_root, "ToUserName")
-        re_receiver.text = poster.text
-        re_poster = ET.SubElement(re_root, "FromUserName")
-        re_poster.text = receiver.text
-        re_timestamp = ET.SubElement(re_root, 'CreateTime')
-        re_timestamp.text = str(int(time.time()))
-        re_msg_type = ET.SubElement(re_root, "MsgType")
-        re_msg_type.text = "text"
-        re_content = ET.SubElement(re_root, "Content")
-        re_content.text = "Delivered to you by Hua Yanghao:\nReceiver: %s, poster: %s, timestamp: %s, msg_type: %s, content: %s, msg_id: %s" % (receiver.text,
-            poster.text, timestamp.text, msg_type.text, content.text, msg_id.text)
-        re_func_flag = ET.SubElement(re_root, "FuncFlag")
-        re_func_flag.text = '1'
-        reply = ET.dump(re_root)
-        reply = template % (poster.text, receiver.text, re_timestamp.text, re_content.text)
+            msg = Message(xml=self.request.body)
+        except MessageError as e:
+            self.log.info("Invalid XML content: %s" % self.request.body)
+            self.response.write("[POST] Ooooops ...")
+        reply = "Message Type: %s\n" % msg.xml_msg_type
+        reply += "Message Data: %s" % str(msg.data)
+        reply = Message.reply(reply)
         log.info(reply)
         self.response.write(reply)
 
