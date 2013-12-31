@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+import os
 import time
 import logging
 from hashlib import sha1
@@ -6,6 +7,8 @@ from httplib2 import Http
 from urllib import urlencode
 import json
 import requests
+
+from lock import Lock
 
 class WeChatError(Exception): pass
 
@@ -26,7 +29,7 @@ class WeChat(object):
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
-    def __init__(self, appid, passcode):
+    def __init__(self, appid, passcode, token_path):
        self.log = logging.getLogger(self.__class__.__name__)
        self.appid = appid
        self.passcode = passcode
@@ -35,6 +38,8 @@ class WeChat(object):
        self.token_last_update = None
        self.access_token = None
        self.token_expire = None
+       self.token_path = token_path
+       self.lock_token = Lock("wechat", "token")
        self.refresh_token()
 
     def verify(self, signature, timestamp, nonce):
@@ -62,6 +67,7 @@ class WeChat(object):
             return True
 
     def refresh_token(self):
+        self.log.info("Refreshing token ...")
         resp, content = self.http.request(self.token_url)
         status = resp['status']
         if status != '200':
@@ -83,10 +89,22 @@ class WeChat(object):
             self.token_last_update = int(time.time())
             self.token_expire = self.token_last_update + int(str(expires_in), 0)
             self.access_token = access_token.encode('utf-8')
+            with self.lock_token:
+                with open(self.token_path, 'wb') as fd:
+                    fd.write(json.dumps([self.access_token, self.token_expire]))
 
     def check_token(self):
-        if int(time.time()) > self.token_expire:
+        if not os.path.exists(self.token_path):
             self.refresh_token()
+        with self.lock_token:
+            with open(self.token_path, 'rb') as fd:
+                data = fd.read()
+        token, expire = json.loads(data)
+        if int(time.time()) > expire:
+            self.refresh_token()
+        else:
+            self.access_token = token.encode('utf-8')
+            self.token_expire = expire
 
     def upload(self, data_type, data):
         if data_type not in self.all_data_type:
@@ -134,8 +152,9 @@ class WeChat(object):
             raise WeChatError("Menu creation failed: %s" % str(data))
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e')
+    logging.basicConfig(level=logging.INFO)
+    token_path = os.path.join(os.environ['HOME'], '.wechat')
+    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', token_path)
     print(time.time())
     print(wechat.token)
     print(wechat.token_expire)
