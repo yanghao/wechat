@@ -13,7 +13,7 @@ from mako.lookup import TemplateLookup
 message_lookup = TemplateLookup(directories=[_p])
 
 class MessageError(Exception): pass
-class MessageTypeError(MessageError): pass
+class MessageXMLError(MessageError): pass
 
 TEXT = "text"
 tag_to_user = "ToUserName"
@@ -40,26 +40,29 @@ class Message:
 
     def _extract_info(self, xml):
         check_list = [tag_to_user, tag_from_user, tag_timestamp, tag_msg_type, tag_msg_id]
-        root = ET.fromstring(xml)
+        try:
+            root = ET.fromstring(xml)
+        except:
+            raise MessageXMLError("Invalid XML data: %s" % xml)
         self.xml_to_user = root.find(tag_to_user)
         if self.xml_to_user == None:
-            raise MessageError("Cannot find to_user from xml ...")
+            raise MessageXMLError("Cannot find to_user from xml ...")
         self.xml_to_user = self.xml_to_user.text
         self.xml_from_user = root.find(tag_from_user)
         if self.xml_from_user == None:
-            raise MessageError("Cannot find from_user from xml ...")
+            raise MessageXMLError("Cannot find from_user from xml ...")
         self.xml_from_user = self.xml_from_user.text
         self.xml_timestamp = root.find(tag_timestamp)
         if self.xml_timestamp == None:
-            raise MessageError("Cannot find CreateTime from xml ...")
+            raise MessageXMLError("Cannot find CreateTime from xml ...")
         self.xml_timestamp = self.xml_timestamp.text
         self.xml_msg_type = root.find(tag_msg_type)
         if self.xml_msg_type == None:
-            raise MessageError("Cannot find MsgType from xml ...")
+            raise MessageXMLError("Cannot find MsgType from xml ...")
         self.xml_msg_type = self.xml_msg_type.text
         self.xml_msg_id = root.find(tag_msg_id)
         if self.xml_msg_id == None:
-            raise MessageError("Cannot find MsgId from xml ...")
+            raise MessageXMLError("Cannot find MsgId from xml ...")
         self.xml_msg_id = self.xml_msg_id.text
 
         #!!! store all the rest fields as message content
