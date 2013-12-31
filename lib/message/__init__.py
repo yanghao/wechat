@@ -39,6 +39,7 @@ class Message:
             self._extract_info(xml)
 
     def _extract_info(self, xml):
+        check_list = [tag_to_user, tag_from_user, tag_timestamp, tag_msg_type, tag_msg_id]
         root = ET.fromstring(xml)
         self.xml_to_user = root.find(tag_to_user)
         if self.xml_to_user == None:
@@ -60,15 +61,18 @@ class Message:
         if self.xml_msg_id == None:
             raise MessageError("Cannot find MsgId from xml ...")
         self.xml_msg_id = self.xml_msg_id.text
-        #! Currently only support text message
-        if self.xml_msg_type != TEXT:
-            raise MessageTypeError("Only text messages are accepted, got: %s" % self.xml_msg_type)
-        self.xml_msg = root.find(tag_content)
-        if self.xml_msg == None:
-            raise MessageError("No message content found")
+
+        #!!! store all the rest fields as message content
+        data = {}
+        for child in root:
+            if child.tag in check_list:
+                continue
+            else:
+                data[child.tag] = child.text
+        self.data = data
 
     def reply(self, content):
-        if self.xml_msg == None:
+        if self.xml_msg_id == None:
             raise MessageError("not initialized from xml ...")
         msg = Message(self.xml_from_user, self.xml_to_user, content)
         t = message_lookup.get_template(msg.msg_type + '.mako')
@@ -151,7 +155,6 @@ if __name__ == '__main__':
     print("=======================================================")
     video = VideoContent(8, "test media title", "This is a test only video ...")
     print(str(Message('xiaoyezi', 'hua', video)))
-    print()
     print("*******************************************************")
     test_xml = ''' <xml>
      <ToUserName><![CDATA[toUser]]></ToUserName>
@@ -163,3 +166,4 @@ if __name__ == '__main__':
            </xml>'''
     msg = Message(xml=test_xml)
     print(msg.reply(video))
+    print(msg.data)
