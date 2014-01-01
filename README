@@ -2,3 +2,7 @@ wechat
 ======
 
 A WeChat Library in Python
+
+Library Dependencies
+====================
+MarkupSafe, Mako, webapp2, webob, requests, httplib2
