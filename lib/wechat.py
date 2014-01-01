@@ -29,7 +29,7 @@ class WeChat(object):
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
-    def __init__(self, appid, passcode, secret, token_path):
+    def __init__(self, appid, passcode, secret, token_path, init_token=True):
        self.log = logging.getLogger(self.__class__.__name__)
        self.appid = appid
        self.passcode = passcode
@@ -41,7 +41,10 @@ class WeChat(object):
        self.token_expire = None
        self.token_path = token_path
        self.lock_token = Lock("wechat", "token")
-       self.refresh_token()
+       if init_token:
+           self.refresh_token()
+       else:
+           self.check_token()
 
     def verify(self, signature, timestamp, nonce):
         if type(signature) not in [str, unicode]:
