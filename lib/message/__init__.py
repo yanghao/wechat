@@ -61,9 +61,10 @@ class Message:
             raise MessageXMLError("Cannot find MsgType from xml ...")
         self.xml_msg_type = self.xml_msg_type.text
         self.xml_msg_id = root.find(tag_msg_id)
-        if self.xml_msg_id == None:
-            raise MessageXMLError("Cannot find MsgId from xml ...")
-        self.xml_msg_id = self.xml_msg_id.text
+        if self.xml_msg_id != None:
+            self.xml_msg_id = self.xml_msg_id.text
+        else:
+            self.xml_msg_id = None
 
         #!!! store all the rest fields as message content
         data = {}
@@ -75,7 +76,7 @@ class Message:
         self.data = data
 
     def reply(self, content):
-        if self.xml_msg_id == None:
+        if self.xml_msg_type == None:
             raise MessageError("not initialized from xml ...")
         msg = Message(self.xml_from_user, self.xml_to_user, content)
         t = message_lookup.get_template(msg.msg_type + '.mako')
