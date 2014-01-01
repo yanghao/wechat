@@ -29,10 +29,11 @@ class WeChat(object):
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
-    def __init__(self, appid, passcode, token_path):
+    def __init__(self, appid, passcode, secret, token_path):
        self.log = logging.getLogger(self.__class__.__name__)
        self.appid = appid
        self.passcode = passcode
+       self.secret = secret
        self.token_url = self.raw_token_url % (appid, passcode)
        self.http = Http()
        self.token_last_update = None
@@ -43,16 +44,16 @@ class WeChat(object):
        self.refresh_token()
 
     def verify(self, signature, timestamp, nonce):
-        if type(signature) != str:
-            self.log.debug("signature is not string")
+        if type(signature) not in [str, unicode]:
+            self.log.error("signature is not string: %s" % (str(type(signature))))
             return False
-        if type(timestamp) != str:
-            self.log.debug("timestamp is not string")
+        if type(timestamp) not in [str, unicode]:
+            self.log.error("timestamp is not string")
             return False
-        if type(nonce) != str:
-            self.log.debug("nonce is not string")
+        if type(nonce) not in [str, unicode]:
+            self.log.error("nonce is not string")
             return False
-        clist = [self.passcode, timestamp, nonce]
+        clist = [self.secret, timestamp, nonce]
         clist.sort()
         content = ''
         for item in clist:
@@ -61,7 +62,7 @@ class WeChat(object):
         sh.update(content)
         hexdigest = sh.hexdigest()
         if signature != hexdigest:
-            self.log.debug("sha1sum mismatch")
+            self.log.error("sha1sum mismatch: %s - %s" % (signature, hexdigest))
             return False
         else:
             return True
@@ -154,7 +155,7 @@ class WeChat(object):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     token_path = os.path.join(os.environ['HOME'], '.wechat')
-    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', token_path)
+    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', 'test', token_path)
     print(time.time())
     print(wechat.token)
     print(wechat.token_expire)
