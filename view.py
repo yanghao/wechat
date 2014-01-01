@@ -14,15 +14,15 @@ from wechat import WeChat
 from message import Message
 from message import MessageError
 from message import MessageXMLError
-
-PASSWORD = "ilovexiaoyezi"
+from message import TextContent
 
 log = logging.getLogger("myroot")
 
 from config import TOKEN_PATH
-wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', TOKEN_PATH)
+from config import SECRET
+wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', SECRET, TOKEN_PATH)
 
-class WeChat(RequestHandler):
+class WeChatView(RequestHandler):
     def check_request(self):
         signature = self.request.GET.get('signature')
         timestamp = self.request.GET.get('timestamp')
@@ -43,17 +43,20 @@ class WeChat(RequestHandler):
     def post(self):
         result = self.check_request()
         if result == False:
+            log.info("check_request failed")
             self.response.write("[POST] Try harder ... ;-)")
             return
         try:
             msg = Message(xml=self.request.body)
         except MessageError as e:
-            self.log.info("Invalid XML content: %s" % self.request.body)
+            log.exception("Invalid XML content: %s" % self.request.body)
             self.response.write("[POST] Ooooops ...")
+            return
         reply = "Message Type: %s\n" % msg.xml_msg_type
         reply += "Message Data: %s" % str(msg.data)
-        reply = Message.reply(reply)
-        log.info(reply)
+        reply = TextContent(reply)
+        reply = msg.reply(reply)
+        log.debug(reply)
         self.response.write(reply)
 
 class Not_Found(RequestHandler):
