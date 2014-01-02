@@ -28,6 +28,7 @@ class WeChat(object):
     raw_download_url = 'http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s'
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/%s?access_token=%s'
+    raw_send_url = 'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
     def __init__(self, appid, passcode, secret, token_path, init_token=True):
@@ -152,7 +153,7 @@ class WeChat(object):
             except KeyError:
                 raise WeChatError("Failed to find errcode: %s" % str(data))
             if err != 0:
-                raise WeChatError("Menu creation failed: %s" % str(data))
+                raise WeChatError("Request failed: %s" % str(data))
         elif err_type == 'group':
             group = None
             try:
@@ -186,6 +187,28 @@ class WeChat(object):
                 except KeyError:
                     raise WeChatError("Failed to find errcode: %s" % str(data))
                 raise WeChatError("Error message: %s" % str(data))
+
+    def send_message(self, user, msg):
+        url = self.raw_send_url % self.token
+        msgtype = msg.keys()[0]
+        data = {'touser': user, 'msgtype': msgtype, msgtype: msg[msgtype]}
+        s = json.dumps(data)
+        resp, content = self.http.request(url, method="POST", body=s)
+        self.check_error(resp, content, 'menu')
+
+    def send(self, user, msg):
+        if type(msg) != dict:
+            if type(msg) not in [tuple, list]:
+                raise WeChatError("Msg is not dict or list: %s" % str(msg))
+        if type(msg) in [tuple, list]:
+            for m in msg:
+                if type(m) != dict:
+                    raise WeChatError("Msg item is not dict: %s" % str(m))
+                if len(m.keys()) != 1:
+                    raise WeChatError("Msg can only has one key: %s" % str(m))
+                self.send_message(user, m)
+        else:
+            self.send_message(user, msg)
 
     def create_menu(self, menu):
         url = self.raw_menu_url % self.token
@@ -256,9 +279,12 @@ if __name__ == "__main__":
     menu['button'].append(one_button)
     #wechat.create_menu(menu)
     #wechat.create_group('normal')
-    print wechat.get_group_list()
-    print wechat.get_group_id('oJEaUjoHMNnKsdLLqqEw8RWX-D5k')
+    #print wechat.get_group_list()
+    #print wechat.get_group_id('oJEaUjoHMNnKsdLLqqEw8RWX-D5k')
     #wechat.update_group(100, "super_vip")
     #print wechat.get_group_list()
-    wechat.move_user('oJEaUjoHMNnKsdLLqqEw8RWX-D5k', 100)
-    print wechat.get_group_list()
+    user = 'oJEaUjoHMNnKsdLLqqEw8RWX-D5k'
+    #wechat.move_user(user, 100)
+    #print wechat.get_group_list()
+    msg = {"text": {"content": "I love this game ..."}}
+    wechat.send(user, [msg, msg])
