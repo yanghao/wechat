@@ -216,7 +216,7 @@ class WeChat(object):
         url = self.raw_send_url % self.token
         msgtype = msg.keys()[0]
         data = {'touser': user, 'msgtype': msgtype, msgtype: msg[msgtype]}
-        s = json.dumps(data)
+        s = json.dumps(data, ensure_ascii=False)
         resp, content = self.http.request(url, method="POST", body=s)
         self.check_error(resp, content, 'menu')
 
@@ -299,6 +299,7 @@ class WeChat(object):
             data = json.loads(content)
             count += data['count']
             result.extend(data['data']['openid'])
+        result = [item.encode('utf-8') for item in result]
         return result
 
 if __name__ == "__main__":
@@ -317,25 +318,45 @@ if __name__ == "__main__":
     #else:
     #    print("Data mismatch !!!")
     #################################
-    #menu = dict()
-    #menu['button'] = []
-    #sub_button = [{"type": "click", "name": "土豆丝", "key": "tudousi"},
-    #              {"type": "click", "name": "西红柿炒鸡蛋", "key": "xihongshichaojidan"},
-    #              {"type": "click", "name": "几个很多的西红柿炒鸡蛋", "key": "manyxihongshichaojidan"},
-    #              ]
-    #one_button = {"name": '菜单', "sub_button": sub_button}
-    #menu['button'].append(one_button)
+    menu = dict()
+    menu['button'] = []
+    sub_button = [{"type": "click", "name": "土豆丝", "key": "tudousi"},
+                  {"type": "click", "name": "西红柿炒鸡蛋", "key": "xihongshichaojidan"},
+                  {"type": "click", "name": "几个很多的西红柿炒鸡蛋", "key": "manyxihongshichaojidan"},
+                  ]
+    one_button = {"name": '菜单', "sub_button": sub_button}
+    menu['button'].append(one_button)
+    #print json.dumps(menu)
     #wechat.create_menu(menu)
     #wechat.create_group('normal')
     #print wechat.get_group_list()
     #print wechat.get_group_id('oJEaUjoHMNnKsdLLqqEw8RWX-D5k')
     #wechat.update_group(100, "super_vip")
     #print wechat.get_group_list()
-    user = 'oJEaUjoHMNnKsdLLqqEw8RWX-D5k'
-    user2 = 'abdfadfadfa'
+    #user = 'oJEaUjoHMNnKsdLLqqEw8RWX-D5k'
+    #user2 = 'abdfadfadfa'
     #wechat.move_user(user, 100)
     #print wechat.get_group_list()
     #msg = {"text": {"content": "I love this game ..."}}
     #wechat.send(user, [msg, msg])
     #print(wechat.get_info(user))
-    print(wechat.get_user_list())
+    #print(wechat.get_user_list())
+    msg = {"text": {"content": "新年快乐！"}}
+    print msg
+    print "-=--------------------"
+    print json.dumps(msg, ensure_ascii=False)
+    print "-=--------------------"
+    user_list = wechat.get_user_list()
+    for user in user_list:
+        msgtype = 'text'
+        data = {'touser': user, 'msgtype': 'text', 'text': {"content": "新年快乐！"}}
+        print "**********************"
+        print json.dumps(msg, ensure_ascii=False)
+        print data
+        print json.dumps(data, ensure_ascii=False)
+        print "**********************"
+        try:
+            wechat.send(user, msg)
+        except:
+            wechat.log.exception(user)
+            print("Failed to send to user: %s" % user)
