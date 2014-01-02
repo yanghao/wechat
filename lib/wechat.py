@@ -27,7 +27,7 @@ class WeChat(object):
     raw_upload_url = 'http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s'
     raw_download_url = 'http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s'
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
-    raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/create?access_token=%s'
+    raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/%s?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
     def __init__(self, appid, passcode, secret, token_path, init_token=True):
@@ -164,6 +164,28 @@ class WeChat(object):
                 except KeyError:
                     raise WeChatError("Failed to find errcode: %s" % str(data))
                 raise WeChatError("Error message: %s" % str(data))
+        elif err_type == 'groups':
+            groups = None
+            try:
+                groups = data['groups']
+            except KeyError:
+                try:
+                    err = data['errcode']
+                    msg = data['errmsg']
+                except KeyError:
+                    raise WeChatError("Failed to find errcode: %s" % str(data))
+                raise WeChatError("Error message: %s" % str(data))
+        elif err_type == 'groupid':
+            groupid = None
+            try:
+                groupid = data['groupid']
+            except KeyError:
+                try:
+                    err = data['errcode']
+                    msg = data['errmsg']
+                except KeyError:
+                    raise WeChatError("Failed to find errcode: %s" % str(data))
+                raise WeChatError("Error message: %s" % str(data))
 
     def create_menu(self, menu):
         url = self.raw_menu_url % self.token
@@ -172,27 +194,57 @@ class WeChat(object):
         self.check_error(resp, content, 'menu')
 
     def create_group(self, group_name):
-        url = self.raw_group_url % self.token
+        url = self.raw_group_url % ('create', self.token)
         data = {'group': {'name': group_name}}
         s = json.dumps(data, ensure_ascii=False)
         resp, content = self.http.request(url, method="POST", body=s)
         self.check_error(resp, content, 'group')
 
+    def get_group_list(self):
+        url = self.raw_group_url % ('get', self.token)
+        resp, content = self.http.request(url, method="GET")
+        self.check_error(resp, content, 'groups')
+        return json.loads(content)['groups']
+
+    def get_group_id(self, user):
+        url = self.raw_group_url % ('getid', self.token)
+        data = {'openid': user}
+        s = json.dumps(data)
+        resp, content = self.http.request(url, method="POST", body=s)
+        self.check_error(resp, content, 'getid')
+        return json.loads(content)['groupid']
+
+    def update_group(self, group_id, name):
+        url = self.raw_group_url % ('update', self.token)
+        data = {'group': {'id': group_id, 'name': name}}
+        s = json.dumps(data)
+        resp, content = self.http.request(url, method="POST", body=s)
+        # !! stupid wechat API design ... reuse 'menu' here
+        self.check_error(resp, content, 'menu')
+
+    def move_user(self, openid, group_id):
+        url = self.raw_group_url % ('members/update', self.token)
+        data = {'openid': openid, 'to_groupid': group_id}
+        s = json.dumps(data)
+        resp, content = self.http.request(url, method="POST", body=s)
+        # !! stupid wechat API design ... reuse 'menu' here
+        self.check_error(resp, content, 'menu')
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     token_path = os.path.join(os.environ['HOME'], '.wechat')
-    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', 'test', token_path)
+    wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', 'test', token_path, False)
     print(time.time())
     print(wechat.token)
     print(wechat.token_expire)
     with open("/home/hua/Pictures/test2.jpg", 'rb') as fd:
         data = fd.read()
-    media_id = wechat.upload('image', data)
-    data_download = wechat.download(media_id)
-    if data_download == data:
-        print("Data downloading OK")
-    else:
-        print("Data mismatch !!!")
+    #media_id = wechat.upload('image', data)
+    #data_download = wechat.download(media_id)
+    #if data_download == data:
+    #    print("Data downloading OK")
+    #else:
+    #    print("Data mismatch !!!")
     #################################
     menu = dict()
     menu['button'] = []
@@ -202,5 +254,11 @@ if __name__ == "__main__":
                   ]
     one_button = {"name": '菜单', "sub_button": sub_button}
     menu['button'].append(one_button)
-    wechat.create_menu(menu)
-    wechat.create_group('vip')
+    #wechat.create_menu(menu)
+    #wechat.create_group('normal')
+    print wechat.get_group_list()
+    print wechat.get_group_id('oJEaUjoHMNnKsdLLqqEw8RWX-D5k')
+    #wechat.update_group(100, "super_vip")
+    #print wechat.get_group_list()
+    wechat.move_user('oJEaUjoHMNnKsdLLqqEw8RWX-D5k', 100)
+    print wechat.get_group_list()
