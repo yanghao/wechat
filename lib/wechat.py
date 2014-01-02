@@ -29,6 +29,7 @@ class WeChat(object):
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
     raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/%s?access_token=%s'
     raw_send_url = 'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s'
+    raw_info_url = 'https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
     def __init__(self, appid, passcode, secret, token_path, init_token=True):
@@ -187,6 +188,17 @@ class WeChat(object):
                 except KeyError:
                     raise WeChatError("Failed to find errcode: %s" % str(data))
                 raise WeChatError("Error message: %s" % str(data))
+        elif err_type == 'info':
+            groupid = None
+            try:
+                groupid = data['openid']
+            except KeyError:
+                try:
+                    err = data['errcode']
+                    msg = data['errmsg']
+                except KeyError:
+                    raise WeChatError("Failed to find errcode: %s" % str(data))
+                raise WeChatError("Error message: %s" % str(data))
 
     def send_message(self, user, msg):
         url = self.raw_send_url % self.token
@@ -253,15 +265,21 @@ class WeChat(object):
         # !! stupid wechat API design ... reuse 'menu' here
         self.check_error(resp, content, 'menu')
 
+    def get_info(self, openid):
+        url = self.raw_info_url % (self.token, openid)
+        resp, content = self.http.request(url, method="GET")
+        self.check_error(resp, content, 'info')
+        return json.loads(content)
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     token_path = os.path.join(os.environ['HOME'], '.wechat')
     wechat = WeChat('wx0428ebd09610826e', '86105554ce1f5d2bae4d88eae2fd925e', 'test', token_path, False)
-    print(time.time())
+    #print(time.time())
     print(wechat.token)
-    print(wechat.token_expire)
-    with open("/home/hua/Pictures/test2.jpg", 'rb') as fd:
-        data = fd.read()
+    #print(wechat.token_expire)
+    #with open("/home/hua/Pictures/test2.jpg", 'rb') as fd:
+    #    data = fd.read()
     #media_id = wechat.upload('image', data)
     #data_download = wechat.download(media_id)
     #if data_download == data:
@@ -269,14 +287,14 @@ if __name__ == "__main__":
     #else:
     #    print("Data mismatch !!!")
     #################################
-    menu = dict()
-    menu['button'] = []
-    sub_button = [{"type": "click", "name": "土豆丝", "key": "tudousi"},
-                  {"type": "click", "name": "西红柿炒鸡蛋", "key": "xihongshichaojidan"},
-                  {"type": "click", "name": "几个很多的西红柿炒鸡蛋", "key": "manyxihongshichaojidan"},
-                  ]
-    one_button = {"name": '菜单', "sub_button": sub_button}
-    menu['button'].append(one_button)
+    #menu = dict()
+    #menu['button'] = []
+    #sub_button = [{"type": "click", "name": "土豆丝", "key": "tudousi"},
+    #              {"type": "click", "name": "西红柿炒鸡蛋", "key": "xihongshichaojidan"},
+    #              {"type": "click", "name": "几个很多的西红柿炒鸡蛋", "key": "manyxihongshichaojidan"},
+    #              ]
+    #one_button = {"name": '菜单', "sub_button": sub_button}
+    #menu['button'].append(one_button)
     #wechat.create_menu(menu)
     #wechat.create_group('normal')
     #print wechat.get_group_list()
@@ -284,7 +302,9 @@ if __name__ == "__main__":
     #wechat.update_group(100, "super_vip")
     #print wechat.get_group_list()
     user = 'oJEaUjoHMNnKsdLLqqEw8RWX-D5k'
+    user2 = 'abdfadfadfa'
     #wechat.move_user(user, 100)
     #print wechat.get_group_list()
     msg = {"text": {"content": "I love this game ..."}}
-    wechat.send(user, [msg, msg])
+    #wechat.send(user, [msg, msg])
+    #print(wechat.get_info(user))
