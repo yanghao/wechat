@@ -30,6 +30,7 @@ class WeChat(object):
     raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/%s?access_token=%s'
     raw_send_url = 'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=%s'
     raw_info_url = 'https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s'
+    raw_user_url = 'https://api.weixin.qq.com/cgi-bin/user/get?access_token=%s&next_openid=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
     def __init__(self, appid, passcode, secret, token_path, init_token=True):
@@ -199,6 +200,17 @@ class WeChat(object):
                 except KeyError:
                     raise WeChatError("Failed to find errcode: %s" % str(data))
                 raise WeChatError("Error message: %s" % str(data))
+        elif err_type == 'data':
+            tmp = None
+            try:
+                tmp = data['data']
+            except KeyError:
+                try:
+                    err = data['errcode']
+                    msg = data['errmsg']
+                except KeyError:
+                    raise WeChatError("Failed to find errcode: %s" % str(data))
+                raise WeChatError("Error message: %s" % str(data))
 
     def send_message(self, user, msg):
         url = self.raw_send_url % self.token
@@ -271,6 +283,24 @@ class WeChat(object):
         self.check_error(resp, content, 'info')
         return json.loads(content)
 
+    def get_user_list(self):
+        url = self.raw_user_url % (self.token, '')
+        resp, content = self.http.request(url, method="GET")
+        self.check_error(resp, content, 'data')
+        data = json.loads(content)
+        total = data['total']
+        count = data['count']
+        next_openid = data['next_openid']
+        result = list(data['data']['openid'])
+        while (count < total):
+            url = self.raw_user_url % (self.token, next_openid.encode('utf-8'))
+            resp, content = self.http.request(url, method="GET")
+            self.check_error(resp, content, 'data')
+            data = json.loads(content)
+            count += data['count']
+            result.extend(data['data']['openid'])
+        return result
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     token_path = os.path.join(os.environ['HOME'], '.wechat')
@@ -305,6 +335,7 @@ if __name__ == "__main__":
     user2 = 'abdfadfadfa'
     #wechat.move_user(user, 100)
     #print wechat.get_group_list()
-    msg = {"text": {"content": "I love this game ..."}}
+    #msg = {"text": {"content": "I love this game ..."}}
     #wechat.send(user, [msg, msg])
     #print(wechat.get_info(user))
+    print(wechat.get_user_list())
