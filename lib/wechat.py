@@ -27,6 +27,7 @@ class WeChat(object):
     raw_upload_url = 'http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token=%s&type=%s'
     raw_download_url = 'http://file.api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s'
     raw_menu_url = 'https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s'
+    raw_group_url = 'https://api.weixin.qq.com/cgi-bin/groups/create?access_token=%s'
     all_data_type = ('image', 'voice', 'thumb', 'video')
     token = Token()
     def __init__(self, appid, passcode, secret, token_path, init_token=True):
@@ -137,23 +138,45 @@ class WeChat(object):
             raise WeChatError("Failed to retrieve media: %s" % media_id)
         return content
 
-    def create_menu(self, menu):
-        url = self.raw_menu_url % self.token
-        s = json.dumps(menu, ensure_ascii=False)
-        resp, content = self.http.request(url, method="POST", body=s)
+    def check_error(self, resp, content, err_type):
         if resp['status'] != '200':
             raise WeChatError("Failed to create menu ...")
         try:
             data = json.loads(content)
         except:
             raise WeChatError("Failed to load json response: %s" % content)
-        try:
-            err = data['errcode']
-            msg = data['errmsg']
-        except KeyError:
-            raise WeChatError("Failed to find errcode: %s" % str(data))
-        if err != 0:
-            raise WeChatError("Menu creation failed: %s" % str(data))
+        if err_type == 'menu':
+            try:
+                err = data['errcode']
+                msg = data['errmsg']
+            except KeyError:
+                raise WeChatError("Failed to find errcode: %s" % str(data))
+            if err != 0:
+                raise WeChatError("Menu creation failed: %s" % str(data))
+        elif err_type == 'group':
+            group = None
+            try:
+                group = data['group']
+            except KeyError:
+                try:
+                    err = data['errcode']
+                    msg = data['errmsg']
+                except KeyError:
+                    raise WeChatError("Failed to find errcode: %s" % str(data))
+                raise WeChatError("Error message: %s" % str(data))
+
+    def create_menu(self, menu):
+        url = self.raw_menu_url % self.token
+        s = json.dumps(menu, ensure_ascii=False)
+        resp, content = self.http.request(url, method="POST", body=s)
+        self.check_error(resp, content, 'menu')
+
+    def create_group(self, group_name):
+        url = self.raw_group_url % self.token
+        data = {'group': {'name': group_name}}
+        s = json.dumps(data, ensure_ascii=False)
+        resp, content = self.http.request(url, method="POST", body=s)
+        self.check_error(resp, content, 'group')
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -180,3 +203,4 @@ if __name__ == "__main__":
     one_button = {"name": '菜单', "sub_button": sub_button}
     menu['button'].append(one_button)
     wechat.create_menu(menu)
+    wechat.create_group('vip')
